@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Price Alerts</title>
+<style>
+:root{--bg:#fff;--fg:#111;--mute:#6b7280;--line:#e5e7eb;--card:#f7f7f8;--ok:#16a34a;--bad:#dc2626}
+@media(prefers-color-scheme:dark){:root{--bg:#0e0e10;--fg:#f4f4f5;--mute:#9ca3af;--line:#2a2a2e;--card:#18181b}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,sans-serif}
+main{max-width:560px;margin:0 auto;padding:16px}h1{font-size:20px;margin:8px 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px}
+label{display:block;font-size:13px;color:var(--mute);margin:10px 0 4px}
+input,select,button{font:inherit;width:100%;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--fg)}
+button{background:var(--fg);color:var(--bg);border:0;font-weight:700;cursor:pointer;margin-top:14px}
+button.sec{background:transparent;color:var(--fg);border:1px solid var(--line);margin-top:0;width:auto;padding:6px 10px;font-size:13px;font-weight:600}
+.row{display:flex;gap:8px}.row>*{flex:1}.chk{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:14px}.chk input{width:auto}
+.a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}
+.a:first-child{border-top:0}.a b{font-size:15px}.a small{color:var(--mute);display:block}.off{opacity:.45}
+.acts{display:flex;gap:6px}#msg{font-size:13px;margin-top:8px;min-height:18px}.bad{color:var(--bad)}.good{color:var(--ok)}
+.live{font-size:12px;color:var(--mute)}
+#sug{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-top:6px;display:none}
+#sug div{display:flex;justify-content:space-between;padding:10px 12px;border-top:1px solid var(--line);cursor:pointer;font-size:15px}
+#sug div:first-child{border-top:0}#sug small{color:var(--mute)}
+.cg{display:grid;grid-template-columns:1fr 1fr;gap:8px}.cg label{margin:6px 0 2px}
+.mrow{margin-top:8px}.mrow b{font-size:13px}.mrow small{color:var(--mute);font-size:12px}.days{display:flex;gap:10px;flex-wrap:wrap;font-size:14px}.days input{width:auto}
+#cust{border-top:1px solid var(--line);margin-top:10px;padding-top:4px}
+#otkmodal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;padding:16px;z-index:50}
+#otkbox{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:16px;max-width:420px;width:100%}
+#otkbox h2{font-size:17px;margin:0 0 6px}#otkbox p{margin:0 0 8px;font-size:14px;color:var(--mute)}
+.t{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 12px}.t th{text-align:left;color:var(--mute);font-weight:600;padding:4px 6px 4px 0;border-bottom:1px solid var(--line)}
+.t td{padding:6px 6px 6px 0;border-bottom:1px solid var(--line);vertical-align:top}.tag{font-weight:700;font-size:12px;padding:1px 6px;border-radius:6px;border:1px solid currentColor}
+.sv text{font-size:9px;fill:var(--mute)}.tr{border-top:1px solid var(--line);padding:10px 0;font-size:13px}.pf.on,.pw.on{background:var(--fg);color:var(--bg)}.mute{color:var(--mute)}
+</style></head><body><main>
+<h1>Price Alerts</h1>
+<div class="mute" style="margin:-6px 0 10px;font-size:13px"><a href="/deriv" style="color:inherit">Deriv demo bot &rarr;</a></div>
+<div class="card">
+  <label>Market pair (tap the box to browse, or type to search)</label><input id="sym" placeholder="BTCUSDT, EURUSD, OLYMP:EURUSD, ALLFOREX or ALLOLYMP" autocapitalize="characters" autocomplete="off">
+  <div id="sug"></div><div class="live" id="live"></div>
+  <label>Alert me when</label>
+  <select id="kind">
+    <option value="above">price goes above</option>
+    <option value="below">price drops below</option>
+    <option value="move">price moves by % (up or down)</option>
+    <option value="candle">a candle forms that looks like money entering</option>
+  </select>
+  <div id="cbox" style="display:none">
+    <label>Candle signal</label><select id="pat"></select>
+    <label>Candle size (timeframe)</label>
+    <select id="tf"><option value="5m">5 minutes</option><option value="10m">10 minutes</option><option value="15m" selected>15 minutes</option><option value="1h">1 hour</option><option value="4h">4 hours</option><option value="1d">1 day</option></select>
+  <div id="cust" style="display:none">
+    <div class="live">Describe up to three candles in a row. Fill in only what matters; everything you fill in must be true, blanks are ignored. The alert fires when the LAST candle closes.</div>
+    <label>Name this pattern (optional)</label><input id="cname" maxlength="40" placeholder="e.g. Rejection then push">
+    <label>How many candles in a row?</label>
+    <select id="cnum"><option value="1">1 candle</option><option value="2">2 candles in a row</option><option value="3">3 candles in a row</option></select>
+    <div id="steps"></div>
+    <label>Where it should appear (all times are UTC)</label>
+    <div class="cg">
+      <div><label>Only if the first candle opens each ... minutes</label><input id="cwin" type="number" placeholder="e.g. 15 or 30 or 60"></div>
+      <div></div>
+      <div><label>Only from hour (0-23)</label><input id="chf" type="number" min="0" max="23"></div>
+      <div><label>to hour (0-23)</label><input id="cht" type="number" min="0" max="23"></div>
+    </div>
+    <div class="live">The minutes rule is checked on the pattern's first candle; the hours and days on its last one (when the alert fires).</div>
+    <label>Only on these days</label>
+    <div class="days"><label class="chk" style="margin:0"><input type="checkbox" class="cday" value="0">Mon</label><label class="chk" style="margin:0"><input type="checkbox" class="cday" value="1">Tue</label><label class="chk" style="margin:0"><input type="checkbox" class="cday" value="2">Wed</label><label class="chk" style="margin:0"><input type="checkbox" class="cday" value="3">Thu</label><label class="chk" style="margin:0"><input type="checkbox" class="cday" value="4">Fri</label><label class="chk" style="margin:0"><input type="checkbox" class="cday" value="5">Sat</label><label class="chk" style="margin:0"><input type="checkbox" class="cday" value="6">Sun</label></div>
+  </div>
+    <div class="live">Checked each time a candle CLOSES. No pattern is a guarantee, so treat it as a prompt to look at the chart.</div>
+  </div>
+  <div class="row" id="prow">
+    <div><label id="tl">Price</label><input id="target" type="number" step="any" inputmode="decimal"></div>
+    <div id="wbox" style="display:none"><label>Within (minutes)</label><input id="win" type="number" value="60" inputmode="numeric"></div>
+  </div>
+  <label>Note (optional)</label><input id="note" maxlength="120">
+  <div class="chk" id="atbox" style="display:none"><input type="checkbox" id="auto"><span><b>Auto-trade</b> each signal on my Olymp Trade DEMO account (needs the switch in the Auto-trade card turned on)</span></div>
+  <div class="chk" id="atbox2" style="display:none"><input type="checkbox" id="autoc"><span>Wait for a <b>confirmation candle</b> after the signal, then trade the whole next candle</span></div>
+  <div class="chk"><input type="checkbox" id="rep"><span>Keep alerting instead of once (price alerts: at most every 15 min; candle alerts: every matching candle)</span></div>
+  <button id="add">Add alert</button><div id="msg"></div>
+</div>
+<div class="card"><b>Your alerts</b><div id="list"></div></div>
+<div class="card"><b>Olymp Trade access token</b>
+  <div class="live" id="otkstat" style="margin-top:4px"></div>
+  <label>Paste a new token (or the whole Cookie line, the access_token is picked out for you)</label>
+  <input id="otkin" type="password" autocomplete="off" placeholder="access_token value">
+  <button id="otksave">Save token</button><div class="live" id="otkmsg"></div>
+  <p class="live">Use a separate Olymp Trade account with demo money only. The token is stored on your server, never shown again on this page. You get a phone notification once when it expires.</p>
+</div>
+<div class="card"><b>OTC pairs to watch (Olymp Trade)</b>
+  <label>Type the asset exactly as Olymp Trade names it, e.g. EURUSD_OTC</label>
+  <div style="display:flex;gap:8px"><input id="otcname" placeholder="EURUSD_OTC" autocapitalize="characters" autocomplete="off"><button id="otcadd" style="width:auto">Add</button></div>
+  <div class="live" id="otcmsg"></div><div id="otclist"></div>
+  <p class="live">Each pair is test-read from Olymp Trade when you add it. Then pick it in the pair box above (it shows as OLYMP:name), or choose ALLOLYMP to watch them all.</p>
+</div>
+<div class="card"><b>Data check: Olymp Trade vs OANDA</b>
+<div class="live">Every 5 minutes the app saves the same candle from both feeds and notes which signals each would have fired. Needs both tokens.</div>
+<button class="sec" id="cmp" style="margin-top:10px">Show the last 24 hours</button><div id="cmpout" class="live" style="white-space:pre-wrap;margin-top:8px;color:var(--fg)"></div></div>
+<div class="card"><b>Results: which setups worked and which didn't</b>
+<div class="live">Every time a candle alert fires on an Olymp Trade asset a pretend trade is saved (no money) and its result is read a few minutes later. Updates by itself.</div>
+<div class="row" style="margin-top:10px"><button class="sec pw" data-h="24">24 hours</button><button class="sec pw" data-h="168">7 days</button><button class="sec pw" data-h="720">30 days</button></div>
+<div id="pres" style="margin-top:10px">Loading...</div></div>
+<div class="card"><b>Auto-trade (Olymp Trade DEMO account only)</b>
+<div class="live">Tick "Auto-trade" on a candle alert for an Olymp Trade asset. When it fires and the switch below is ON, one demo trade is sent in the signal's direction. It can only ever send demo trades. Each trade's result is read back about a minute after it ends (an estimate from 1-minute candles; your Olymp demo history is the truth) and compared with the pretend trades in the Results card.</div>
+<div class="row" style="margin-top:10px"><div><label>Demo account ID</label><input id="at_account_id" inputmode="numeric"></div><div><label>Stake</label><input id="at_amount" inputmode="numeric"></div><div><label>Expiry (seconds)</label><input id="at_duration" inputmode="numeric"></div></div>
+<div class="row"><div><label>Max trades / hour</label><input id="at_max_hour" inputmode="numeric"></div><div><label>Max trades / day</label><input id="at_max_day" inputmode="numeric"></div><div><label>Skip if late (s)</label><input id="at_max_late" inputmode="numeric"></div></div>
+<div class="row"><div><label>Stake type</label><select id="at_stake_mode"><option value="0">Fixed amount</option><option value="1">% of balance</option></select></div><div class="pctf"><label>Stake % of balance</label><input id="at_stake_pct" inputmode="decimal" placeholder="e.g. 2"></div></div>
+<div class="row pctf"><div><label>Balance (same units as Stake)</label><input id="at_balance" inputmode="numeric"></div><div><label>Min stake (0 = none)</label><input id="at_stake_min" inputmode="numeric"></div><div><label>Max stake (0 = none)</label><input id="at_stake_max" inputmode="numeric"></div></div>
+<div class="live pctf">Enter your demo balance once, in the SAME units as the Stake (if a stake of 1500 shows as 15.00 on the screen, a balance of 10,000.00 is 1000000 here). The app keeps it up to date from the estimated results of the trades it sends, so re-enter it now and then to correct drift. The % is limited to 0.1 to 25.</div>
+<div class="live" id="stakenow" style="color:var(--fg)"></div>
+<div class="row"><div><label>Finish before candle close (s)</label><input id="at_margin" inputmode="numeric"></div></div>
+<div class="row"><div><label>Stop after N losses in a row (0 = never)</label><input id="at_max_streak" inputmode="numeric"></div><div><label>Stop after N losses in 24 h (0 = never)</label><input id="at_max_day_losses" inputmode="numeric"></div></div>
+<div class="live">Auto-trade switches itself OFF at either limit and tells your phone. Results come from Olymp's 1-minute candles (an estimate), so it reacts about a minute after the last trade ends. Switching it on again starts a fresh streak.</div>
+<button class="sec" id="atsave" style="margin-top:10px;width:100%;padding:11px">Save settings</button>
+<div class="row" style="margin-top:10px"><button class="sec" id="atsw" style="margin:0;width:100%;padding:11px">Loading...</button><button class="sec" id="atrf" style="margin:0;width:100%;padding:11px">Refresh</button></div>
+<div id="atout" class="live" style="white-space:pre-wrap;margin-top:8px;color:var(--fg)"></div></div>
+<div class="card"><b>Adaptive direction (confirmation cases)</b>
+<div class="live">Each case keeps score of its default direction on its last confirmed trades. When we are 95% sure the default direction wins less than half, that case trades the other way, and it switches back when the default recovers. Case 1: same as the signal. Case 2: opposite. Case 3: same.</div>
+<div class="row" style="margin-top:10px"><button class="sec" id="adsw" style="margin:0;width:100%;padding:11px">Loading...</button></div>
+<div class="row" style="margin-top:8px"><select id="adfam" class="psel"><option>case 1</option><option>case 2</option><option>case 3</option><option>all confirmed trades</option><option>everything</option></select></div>
+<div class="row" style="margin-top:8px"><button class="sec" id="adf" style="margin:0;width:100%;padding:11px">Find what decides the direction (deep analysis)</button></div>
+<div id="adfout" class="live" style="white-space:pre-wrap;margin-top:8px;color:var(--fg)"></div>
+<div id="adout" class="live" style="white-space:pre-wrap;margin-top:8px;color:var(--fg)"></div></div>
+<div class="card"><b>Playbook (learns which setups keep working)</b>
+<div class="live">From your finished confirmed trades it looks for setups (one candle characteristic, or two together) that win clearly more than half the time, on older AND newer trades, and in every part of the history. Only rules that pass all of that become ACTIVE. Each active rule is checked against its latest trades; when it stops working it is retired, and a new pattern that passes the same tests is learned automatically. Pretend trades keep being recorded either way, so it keeps learning.</div>
+<div class="row" style="margin-top:10px"><div><label>What it does with the bot</label><select id="pbmode" class="psel"><option value="off">Off: only learn and show</option><option value="direction">Direction: a matching rule decides the direction</option><option value="only">Only trade setups a rule matches</option></select></div>
+<div><label>How strict</label><select id="pblevel" class="psel"><option value="strict">Strict (fewest false rules)</option><option value="balanced">Balanced</option><option value="relaxed">Relaxed (many false rules)</option></select></div></div>
+<div class="chk" style="margin-top:8px"><input type="checkbox" id="pbsig"><span><b>Entry signals to my phone</b>: "GET READY" as soon as a setup that an active rule could still match forms (with the exact entry time), a 30-second reminder, then "ENTER asset UP/DOWN now, expiry at HH:MM" if the confirmation candle qualifies. Works even with auto-trade OFF.</span></div>
+<div class="row" style="margin-top:8px"><button class="sec" id="pbnow" style="margin:0;width:100%;padding:11px">Learn now</button><button class="sec" id="pbreplay" style="margin:0;width:100%;padding:11px">Test it on my history</button></div>
+<div id="pbout" class="live" style="white-space:pre-wrap;margin-top:8px;color:var(--fg)"></div>
+<div id="pbrep" class="live" style="white-space:pre-wrap;margin-top:8px;color:var(--fg)"></div></div>
+<div class="card"><button class="sec" id="test" style="width:100%">Send a test notification to my phone</button>
+<div class="live" id="stat" style="margin-top:8px"></div></div>
+</main>
+<div id="otkmodal"><div id="otkbox">
+  <h2>Olymp Trade token expired</h2>
+  <p>Olymp alerts are paused until you paste a new access token. You can do it later from the "Olymp Trade access token" box on this page.</p>
+  <input id="otkin2" type="password" autocomplete="off" placeholder="access_token value">
+  <div class="row" style="margin-top:12px"><button class="sec" id="otkno" style="margin:0;width:100%;padding:11px">Not now</button><button id="otksave2" style="margin:0">Save token</button></div>
+  <div class="live" id="otkmsg2" style="margin-top:8px"></div>
+</div></div>
+<script>
+const $=id=>document.getElementById(id);
+let tok=localStorage.getItem('tok')||'';
+async function api(path,opt={}){
+  const r=await fetch(path,{...opt,headers:{'Content-Type':'application/json','X-Token':tok}});
+  if(r.status===401){tok=prompt('Password')||'';localStorage.setItem('tok',tok);return api(path,opt)}
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){let d=j.detail;
+    if(Array.isArray(d))d=d.map(e=>{const f=(e.loc||[]).slice(-1)[0];const n={symbol:'Market pair',target:'Price',window_min:'Minutes',kind:'Alert type',pattern:'Candle signal',timeframe:'Candle size'}[f]||f;return (n?n+': ':'')+e.msg}).join('; ');
+    else if(d&&typeof d==='object')d=JSON.stringify(d);
+    throw new Error(d||r.statusText)}
+  return j}
+function say(t,c){$('msg').textContent=t;$('msg').className=c||''}
+$('kind').onchange=()=>{const k=$('kind').value,m=k==='move',c=k==='candle';$('wbox').style.display=m?'':'none';
+  $('prow').style.display=c?'none':'';$('cbox').style.display=c?'':'none';$('tl').textContent=m?'Move (%)':'Price'};
+(async()=>{try{const p=await fetch('/api/patterns').then(r=>r.json());$('pat').innerHTML=Object.entries(p).map(([k,v])=>`<option value="${k}">${v}</option>`).join('');$('pat').onchange()}catch(e){}})();
+const MET=[['body_pct','Body size','% of the candle height, 0-100'],['body_x','Body vs recent average','times the average body'],
+['range_x','Whole candle height vs average','times the average height'],['close_pos','Where it closes','% up the candle: 0 = at the low, 100 = at the high'],
+['wup','Upper wick','times the body'],['wlo','Lower wick','times the body'],['wopen','Opening-side wick','times the body (bottom if green, top if red)'],
+['wclose','Closing-side wick','times the body (top if green, bottom if red)'],['vol_x','Volume vs average','times average (crypto only; forex has no real volume)'],
+['move_pct','Move, open to close','% of the open price'],['body_prev_x','Body vs previous candle','times the previous body'],
+['range_prev_x','Height vs previous candle','times the previous height'],['vol_prev_x','Volume vs previous candle','times the previous volume (crypto only)']];
+const FLAGL=[['breaks_prev_high',"closes above the previous candle's high"],['breaks_prev_low',"closes below the previous candle's low"],['higher_high',"makes a higher high than the previous candle"],['lower_low',"makes a lower low than the previous candle"],['higher_close',"closes above the previous candle's close"],['lower_close',"closes below the previous candle's close"],['engulfs_prev',"its body covers the previous candle's body"],['inside_prev',"sits completely inside the previous candle"],
+['gap_up',"gaps up: opens above the previous high"],['gap_down',"gaps down: opens below the previous low"],['opens_above_close',"opens above the previous close"],['opens_below_close',"opens below the previous close"],
+['opens_in_body',"opens inside the previous body"],['closes_in_body',"closes inside the previous body"]];
+function stepHTML(i){return `<div class="stepbox" id="step${i}" style="border-top:1px solid var(--line);margin-top:12px;padding-top:4px"><b class="stitle"></b>
+  <div class="cg">
+    <div><label>Colour</label><select id="ccolor${i}"><option value="">any</option><option value="green">green (closes higher)</option><option value="red">red (closes lower)</option></select></div>
+    <div><label>Previous candle colour</label><select id="cprev${i}"><option value="">any</option><option value="green">green</option><option value="red">red</option></select></div>
+    <div><label>Market before it</label><select id="ctrend${i}"><option value="">any</option><option value="down">fell over the last candles</option><option value="up">rose over the last candles</option></select></div>
+    <div><label>...how many candles back</label><input id="ctn${i}" type="number" value="5" min="2" max="18"></div>
+    <div><label>Candle shape</label><select id="cshape${i}"><option value="">any</option><option value="doji">doji (tiny body)</option><option value="marubozu">marubozu (almost no wicks)</option><option value="long_body">long body</option><option value="spinning_top">spinning top</option><option value="hammer_shape">hammer shape (long lower wick)</option><option value="star_shape">shooting-star shape (long upper wick)</option></select></div>
+    <div></div>
+    <div><label>Breakout</label><select id="cbrk${i}"><option value="">none</option><option value="high">closes above the highest high of the last N candles</option><option value="low">closes below the lowest low of the last N candles</option></select></div>
+    <div><label>...N candles</label><input id="cbn${i}" type="number" value="5" min="2" max="18"></div>
+    <div><label>Average (SMA of closes)</label><select id="cma${i}"><option value="">none</option><option value="above">closes above the average</option><option value="below">closes below the average</option></select></div>
+    <div><label>...average of N candles</label><input id="cman${i}" type="number" value="10" min="2" max="20"></div>
+  </div>
+  <label>Size and shape (min and max; leave blank for no limit)</label>
+  ${MET.map(([k,n,u])=>`<div class="mrow"><b>${n}</b> <small>${u}</small><div class="row"><input id="m_${k}_min${i}" type="number" step="any" placeholder="min"><input id="m_${k}_max${i}" type="number" step="any" placeholder="max"></div></div>`).join('')}
+  <label>Compared with the candle just before it</label>
+  <div class="days" style="flex-direction:column;gap:6px">${FLAGL.map(([k,n])=>`<label class="chk" style="margin:0"><input type="checkbox" id="${k}${i}"><span>${n}</span></label>`).join('')}</div></div>`}
+$('steps').innerHTML=[0,1,2].map(stepHTML).join('');
+function showSteps(){const n=+$('cnum').value;[0,1,2].forEach(i=>{$('step'+i).style.display=i<n?'':'none';
+  $('step'+i).querySelector('.stitle').textContent=n===1?'The candle':`Candle ${i+1}`+(i===n-1?' (the last one: the alert fires when it closes)':i===0?' (the first, oldest)':'')})}
+$('cnum').onchange=showSteps;showSteps();
+function stepRule(i){const v=id=>$(id).value===''?null:+$(id).value;
+  const r={color:$('ccolor'+i).value,prev_color:$('cprev'+i).value,trend:$('ctrend'+i).value,trend_n:v('ctn'+i)||5,
+    shape:$('cshape'+i).value,break:$('cbrk'+i).value,break_n:v('cbn'+i)||5,ma:$('cma'+i).value,ma_n:v('cman'+i)||10};
+  MET.forEach(([k])=>['min','max'].forEach(s=>{const x=v(`m_${k}_${s}${i}`);if(x!==null)r[`${k}_${s}`]=x}));
+  FLAGL.forEach(([k])=>r[k]=$(k+i).checked);return r}
+function rule(){const v=i=>$(i).value===''?null:+$(i).value;
+  return {name:$('cname').value,window_min:v('cwin'),hour_from:v('chf'),hour_to:v('cht'),
+    days:[...document.querySelectorAll('.cday:checked')].map(x=>+x.value),
+    steps:[...Array(+$('cnum').value).keys()].map(stepRule)}}
+function pn(x){let n='',k=1;try{const r=JSON.parse(x.rule||'{}');n=r.name;k=(r.steps||[1]).length}catch(e){}return x.pattern==='custom'?(n||(k>1?k+'-candle pattern':'custom candle'))+(n&&k>1?` (${k} candles)`:''):x.pattern.replace(/_/g,' ')}
+$('pat').onchange=()=>{const v=$('pat').value,w=v.startsWith('first');$('cust').style.display=v==='custom'?'':'none';if(w)$('tf').value=v.startsWith('first10')?'10m':'5m';$('tf').disabled=w};
+function allfx(){if(['ALLFOREX','ALLOLYMP'].includes($('sym').value.trim().toUpperCase())&&$('kind').value!=='candle'){$('kind').value='candle';$('kind').onchange()}}
+async function load(){
+  try{const a=await api('/api/alerts');
+  $('list').innerHTML=a.length?a.map(x=>`<div class="a ${x.active?'':'off'}"><div><b>${x.symbol}</b> ${
+    x.kind==='candle'?`${x.timeframe} candle: ${pn(x)}`:x.kind==='move'?`moves ${x.target}% in ${x.window_min}m`:(x.kind==='above'?'≥ ':'≤ ')+x.target}
+    <small>${x.kind==='candle'?'':'now '+(x.price??'…')}${x.repeat?' · repeating':''}${x.autotrade?(x.autotrade==2?' · AUTO-TRADE (demo, waits for confirmation)':' · AUTO-TRADE (demo)'):''}${x.active?'':' · done/paused'}${x.note?' · '+x.note:''}</small>${x.kind==='candle'&&x.active&&x.diag?`<br><small>Last check: ${x.diag}</small>`:''}</div>
+    <div class="acts"><button class="sec" onclick="tg(${x.id})">${x.active?'Pause':'Resume'}</button>
+    <button class="sec" onclick="rm(${x.id})">✕</button></div></div>`).join(''):'<p class="live">No alerts yet.</p>';
+  const s=await api('/api/status');otkStatus(s.olymp_token);
+  $('stat').textContent=s.error?('Problem: '+s.error):(s.ntfy_topic_set?'':'NTFY_TOPIC is not set on the server. ')+`Watching ${s.pairs_loaded} pairs. Forex source: ${s.forex_source}.`;
+  }catch(e){}}
+window.tg=async id=>{await api(`/api/alerts/${id}/toggle`,{method:'POST'});load()};
+window.rm=async id=>{if(confirm('Delete this alert?')){await api(`/api/alerts/${id}`,{method:'DELETE'});load()}};
+$('add').onclick=async()=>{
+  allfx();
+  if($('sym').value.replace(/[^A-Za-z]/g,'').length<6){say('Pick a market pair first: tap the pair box and choose one from the list, or type it, like BTCUSDT','bad');return}
+  if($('kind').value==='candle'&&(!$('pat').value||!$('tf').value)){say('Choose a candle signal and a candle size','bad');return}
+  if($('kind').value!=='candle'&&!(+$('target').value>0)){say('Enter a price (or a % move) above 0','bad');return}
+  try{await api('/api/alerts',{method:'POST',body:JSON.stringify({symbol:$('sym').value,kind:$('kind').value,
+    target:+$('target').value||0,pattern:$('pat').value,timeframe:$('tf').value,window_min:+$('win').value||60,repeat:$('rep').checked,autotrade:$('auto').checked?($('autoc').checked?2:1):0,note:$('note').value,rule:$('pat').value==='custom'?rule():undefined})});
+    say('Alert added','good');$('target').value='';$('note').value='';load()}catch(e){say(e.message,'bad')}};
+$('test').onclick=async()=>{try{await api('/api/test',{method:'POST'});$('stat').textContent='Test sent, check your phone.'}catch(e){$('stat').textContent='Test failed: '+e.message}};
+$('cmp').onclick=async()=>{const o=$('cmpout');o.textContent='Loading...';try{const r=await api('/api/compare?hours=24');
+  if(r.enabled&&!r.pairs.length){o.textContent='Nothing to compare: your Olymp list has no real forex pairs. OTC assets exist only on Olymp Trade, so there is no second feed to check them against.';return}
+  if(!r.enabled){o.textContent='Turn on both OANDA_TOKEN and OLYMP_ACCESS_TOKEN first.';return}
+  if(!r.symbols.length){o.textContent='Nothing saved yet. It starts with the next 5-minute candle; check back in a few hours (forex is closed at weekends).';return}
+  let t=r.symbols.map(s=>`${s.symbol}: ${s.compared} candles compared, ${s.missing} with no matching Olymp candle. Average gap in pips: open ${s.avg_diff_pips.open}, high ${s.avg_diff_pips.high}, low ${s.avg_diff_pips.low}, close ${s.avg_diff_pips.close}. Colour differed ${s.color_mismatch} times.`).join('\n\n');
+  t+='\n\n'+(r.signals.length?'Signals (same candle, two feeds):\n'+r.signals.map(d=>`${d.signal}: both ${d.both}, OANDA only ${d.oanda_only}, Olymp only ${d.olymp_only}, agree ${d.agree_pct}%`).join('\n'):'None of your signals fired in this period, so there is nothing to compare yet.');
+  o.textContent=t}catch(e){o.textContent='Failed: '+e.message}};
+let otkSince=0;
+function otkShow(on){$('otkmodal').style.display=on?'flex':'none';if(on)$('otkin2').focus()}
+function otkDismiss(){try{localStorage.setItem('otkDismissed',String(otkSince))}catch(e){}otkShow(false)}
+function otkStatus(t){
+  if(!t)return;otkSince=t.since||0;const el=$('otkstat');
+  if(!t.set){el.textContent='No token saved, so Olymp Trade is off.';el.className='live'}
+  else if(t.expired){el.textContent='Expired since '+new Date(t.since*1000).toLocaleString()+'. Olymp alerts are paused until you save a new token.';el.className='live bad'}
+  else{el.textContent=t.last_ok?'Working (last used '+new Date(t.last_ok*1000).toLocaleTimeString()+').':'Saved. It has not been used yet.';el.className='live'}
+  let seen='';try{seen=localStorage.getItem('otkDismissed')||''}catch(e){}
+  // pop up once per expiry: after you cancel it, it stays quiet until the NEXT expiry (the box above still shows the state)
+  if(t.expired&&seen!==String(t.since)&&$('otkmodal').style.display!=='flex')otkShow(true)}
+async function otkSave(inp,msg,btn){const m=$(msg);if(!$(inp).value.trim()){m.textContent='Paste the token first';return}
+  m.textContent='Checking with Olymp Trade...';$(btn).disabled=true;
+  try{const r=await api('/api/olymp-token',{method:'POST',body:JSON.stringify({token:$(inp).value})});
+    $(inp).value='';m.textContent=r.note||'Saved. Olymp alerts are running again.';otkShow(false);$('otkmsg').textContent=r.note||'Saved.';load()}
+  catch(e){m.textContent=e.message}finally{$(btn).disabled=false}}
+$('otksave').onclick=()=>otkSave('otkin','otkmsg','otksave');
+$('otksave2').onclick=()=>otkSave('otkin2','otkmsg2','otksave2');
+$('otkno').onclick=otkDismiss;
+$('otkmodal').onclick=e=>{if(e.target.id==='otkmodal')otkDismiss()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('otkmodal').style.display==='flex')otkDismiss()});
+async function otcLoad(){try{const r=await api('/api/olymp-pairs');
+  $('otclist').innerHTML=r.enabled?(r.pairs.length?r.pairs.map(p=>`<div class="a"><div><b>${p}</b></div><div class="acts"><button class="sec" onclick="otcRm('${p}')">✕</button></div></div>`).join(''):'<p class="live">No OTC pairs yet.</p>'):'<p class="live">Set OLYMP_ACCESS_TOKEN on the server to use Olymp Trade.</p>'}catch(e){}}
+window.otcRm=async p=>{await api('/api/olymp-pairs/'+encodeURIComponent(p),{method:'DELETE'});otcLoad()};
+$('otcadd').onclick=async()=>{const m=$('otcmsg');m.textContent='Checking with Olymp Trade...';
+  try{await api('/api/olymp-pairs',{method:'POST',body:JSON.stringify({name:$('otcname').value})});m.textContent='Added.';$('otcname').value='';otcLoad()}catch(e){m.textContent=e.message}};
+otcLoad();
+const esc=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const tm=t=>new Date(t*1000).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+let pH=168,pF='all',lastJ=[],pSig='ALL SIGNALS',pExp=0,pShow=15;
+function rate(w,l,be){const n=w+l;if(!n)return '<span class="mute">-</span>';const r=100*w/n,c=n<50?'mute':r/100>be?'good':'bad';return `<b class="${c}">${r.toFixed(0)}%</b>`}
+function tag(o){const c={win:'good',loss:'bad',mixed:'mute',pending:'mute','no result':'mute'}[o]||'mute';return `<span class="tag ${c}">${o==='pending'?'WAITING':o.toUpperCase()}</span>`}
+function chart(x){
+  const c=x.ctx;if(!c||!(c.setup||[]).length)return '';
+  const S=c.setup,C=c.conf?[c.conf]:[],A=x.after||[],all=[...S,...C,...A];
+  let hi=Math.max(...all.map(k=>k[2]),x.entry_price),lo=Math.min(...all.map(k=>k[3]),x.entry_price);
+  if(hi===lo){hi+=1e-4;lo-=1e-4}
+  const W=330,H=100,T=6,B=6,G=18,n=all.length,sw=(W-G)/n,y=p=>T+(hi-p)/(hi-lo)*(H-T-B),ne=S.length+C.length;
+  const sx=i=>i*sw+(i>=ne?G:0),mid=i=>sx(i)+sw/2;
+  let g='';
+  all.forEach((k,i)=>{const up=k[4]>=k[1],col=up?'var(--ok)':'var(--bad)',w=sw*.6,x0=sx(i)+sw*.2,cx=x0+w/2,y1=y(Math.max(k[1],k[4])),h=Math.max(1.5,Math.abs(y(k[1])-y(k[4])));
+    g+=`<line x1="${cx}" x2="${cx}" y1="${y(k[2])}" y2="${y(k[3])}" style="stroke:${col}" stroke-width="1.5"/><rect x="${x0}" y="${y1}" width="${w}" height="${h}" rx="1" style="fill:${col}"/>`});
+  const si=S.length-1;
+  g+=`<rect x="${sx(si)+1}" y="1" width="${sw-2}" height="${H-2}" rx="3" fill="none" style="stroke:var(--fg)" stroke-dasharray="2 2" opacity=".5"/>`;
+  g+=`<line x1="${sx(ne)-G/2}" x2="${sx(ne)-G/2}" y1="0" y2="${H}" style="stroke:var(--line)" stroke-width="1.5"/>`;
+  g+=`<line x1="${sx(ne)-G/2}" x2="${W}" y1="${y(x.entry_price)}" y2="${y(x.entry_price)}" style="stroke:var(--fg)" stroke-dasharray="4 3" opacity=".7"/>`;
+  const L=(xx,t,r=0)=>`<text x="${xx}" y="${H+11}" text-anchor="middle">${t}</text>`;
+  let lab='';
+  if(S.length>1)lab+=L((sx(0)+sx(si-1)+sw)/2,c.k>1?'pattern':'before');
+  lab+=L(mid(si),'signal');
+  if(C.length)lab+=L(mid(S.length),'confirm');
+  if(A.length)lab+=L((sx(ne)+sx(n-1)+sw)/2,'after entry &rarr; (1 min each)');
+  let ex='';
+  Object.entries(x.expiries).forEach(([m,e])=>{const i=ne+(+m)-1;if(i>=n)return;const col=e.result==='win'?'var(--ok)':e.result==='loss'?'var(--bad)':'var(--mute)';
+    ex+=`<text x="${mid(i)}" y="${H+24}" text-anchor="middle" style="fill:${col};font-weight:700">${m}m ${e.result==='win'?'&#10003;':e.result==='loss'?'&#10007;':'='}</text>`});
+  return `<svg class="sv" viewBox="0 0 ${W} ${H+28}" width="100%" role="img" aria-label="candles of the setup, the entry and what followed">${g}${lab}${ex}</svg>`}
+function renderTrades(){
+  const f=pF,list=lastJ.filter(x=>f==='all'||(f==='win'&&x.overall==='win')||(f==='fail'&&(x.overall==='loss'||x.overall==='mixed'))||(f==='real'&&x.real));
+  document.querySelectorAll('.pf').forEach(b=>b.classList.toggle('on',b.dataset.f===pF));
+  $('ptr').innerHTML=list.length?list.slice(0,pShow).map(x=>`<div class="tr"><div>${tag(x.overall)} <b>${esc(x.symbol.replace('OLYMP:',''))}</b> ${esc(x.signal.replace(/_/g,' '))} &rarr; called <b>${esc(x.direction)}</b>
+    <div class="mute">${tm(x.entry_time)}, entry ${+(+x.entry_price).toFixed(5)}</div>${x.real?`<div style="margin-top:4px"><span class="tag" style="color:var(--fg)">TRADED (demo)</span> stake ${x.real.amount}: ${x.real.settled&&x.real.result?`<b class="${x.real.result==='win'?'good':x.real.result==='loss'?'bad':'mute'}">${x.real.result.toUpperCase()}</b> (${x.real.pips>0?'+':''}${x.real.pips} pips, estimated)`:'<span class="mute">waiting for its result</span>'}</div>`:''}</div>${chart(x)||'<div class="mute">(no chart: this trade was saved before charts existed)</div>'}
+    <div>${Object.entries(x.expiries).map(([m,e])=>{const p=x.direction==='down'?-e.pips:e.pips;return `${m}m <b class="${e.result==='win'?'good':e.result==='loss'?'bad':'mute'}">${e.result}</b> (${p>0?'+':''}${p} pips)`}).join(' &middot; ')}</div>
+    <div class="mute">${esc(x.instead)}</div></div>`).join('')+(list.length>pShow?`<button class="sec" id="pmore" style="width:100%;padding:10px;margin-top:8px">Show 15 more (${list.length-pShow} not shown)</button>`:''):'<span class="mute">Nothing in this group yet.</span>';
+  if($('pmore'))$('pmore').onclick=()=>{pShow+=15;renderTrades()}}
+function hourChart(an){
+  const W=330,H=70,bw=W/24,be=an.breakeven;let g='';
+  an.by_hour.forEach(x=>{const n=x.wins+x.losses;if(!n)return;const r=x.wins/n,h=Math.max(2,r*H),col=n<10?'var(--mute)':r>be?'var(--ok)':'var(--bad)';
+    g+=`<rect x="${x.hour*bw+1.5}" y="${H-h}" width="${bw-3}" height="${h}" rx="1.5" style="fill:${col}" ${n<10?'opacity=".45"':''}><title>${String(x.hour).padStart(2,'0')}:00 UTC: ${x.wins} won, ${x.losses} lost (${Math.round(r*100)}%)</title></rect>`});
+  g+=`<line x1="0" x2="${W}" y1="${H-be*H}" y2="${H-be*H}" style="stroke:var(--fg)" stroke-dasharray="3 3" opacity=".6"/><text x="${W}" y="${H-be*H-2}" text-anchor="end">break-even</text>`;
+  for(let h=0;h<24;h+=3)g+=`<text x="${h*bw+bw/2}" y="${H+11}" text-anchor="middle">${h}</text>`;
+  return `<svg class="sv" viewBox="0 0 ${W} ${H+14}" width="100%" role="img" aria-label="win rate by hour of the day, UTC">${g}</svg>`}
+async function pLoad(){const el=$('pres');
+  if(document.activeElement&&document.activeElement.classList.contains('psel'))return; // do not close a dropdown the user is using
+  document.querySelectorAll('.pw').forEach(b=>b.classList.toggle('on',+b.dataset.h===pH));
+  try{const [st,jr,an,rl]=await Promise.all([api('/api/paper?hours='+pH),api('/api/paper/journal?hours='+pH),
+    api(`/api/paper/analysis?hours=${pH}&exp=${pExp}&signal=${encodeURIComponent(pSig)}`),api('/api/trader/real?hours='+pH)]);
+  if(!st.total){el.innerHTML='<span class="mute">No pretend trades yet. One is saved each time a candle alert fires on an Olymp Trade asset.</span>';return}
+  pSig=an.signal;pExp=an.exp;
+  const be=st.breakeven,all=st.rows.filter(x=>x.signal==='ALL SIGNALS'),sig=st.rows.filter(x=>x.signal!=='ALL SIGNALS');
+  let h=`<label class="chk" style="margin:0 0 8px"><input type="checkbox" id="pnot" ${an.notify_on?'checked':''}> Notify my phone when results come in (one quiet message per batch)</label>`;
+  h+=`<div class="mute" style="font-size:12px">${st.total} trades, ${st.open} still waiting. Win rate needed to break even: ${(be*100).toFixed(1)}%. Green = above that, red = below, grey = fewer than 50 trades, too early to judge.</div>`;
+  h+='<b>Overall</b><table class="t"><tr><th>Expiry</th><th>Won</th><th>Lost</th><th>Win rate</th><th>Net</th></tr>'+all.map(x=>`<tr><td>${x.expiry} min</td><td>${x.wins}</td><td>${x.losses}</td><td>${rate(x.wins,x.losses,be)}</td><td>${x.net}</td></tr>`).join('')+'</table>';
+  h+='<b>Real demo trades vs pretend</b><div class="mute" style="font-size:12px;margin:4px 0">';
+  if(!rl.sent)h+='No demo trade has been sent yet (tick Auto-trade on an alert and switch it on in the Auto-trade card).</div>';
+  else{const gap=(rl.win_rate!=null&&rl.pretend_rate!=null)?rl.win_rate-rl.pretend_rate:null;
+    h+=`${rl.sent} sent, ${rl.open} waiting for their result. Results are an estimate from 1-minute candles; your Olymp demo history is the truth.</div>
+    <div>Real: <b>${rl.wins}</b> won, <b>${rl.losses}</b> lost, ${rl.draws} draw${rl.win_rate!=null?`, win rate <b>${rl.win_rate}%</b>`:''}.<br>Pretend (${rl.pretend_expiry} min, same period): ${rl.pretend_rate!=null?`<b>${rl.pretend_rate}%</b> over ${rl.pretend_n} trades`:'no data'}.${gap!=null?`<br>Gap: <b class="${gap<-5?'bad':'mute'}">${gap>0?'+':''}${gap.toFixed(0)} points</b>${(rl.wins+rl.losses<20)?' (few real trades, so this means little yet)':gap<-5?' (real is doing worse than pretend: entering a few seconds late and the broker price cost you)':''}.`:''}</div>
+    <table class="t">`+rl.trades.slice(0,12).map(x=>`<tr><td>${tm(x.at)}</td><td><b>${esc(x.asset)}</b> ${esc(x.signal.replace(/_/g,' '))} &rarr; ${esc(x.direction)}</td><td>${x.result?`<b class="${x.result==='win'?'good':x.result==='loss'?'bad':'mute'}">${x.result}</b> (${x.pips>0?'+':''}${x.pips})`:'<span class="mute">waiting</span>'}</td></tr>`).join('')+'</table>'}
+  if(sig.length)h+='<b>By signal (best first)</b><table class="t"><tr><th>Signal</th><th>Exp.</th><th>W / L</th><th>Win rate</th><th>Net</th></tr>'+sig.sort((a,b)=>(b.net-a.net)).map(x=>`<tr><td>${esc(x.signal.replace(/_/g,' '))}</td><td>${x.expiry}m</td><td>${x.wins} / ${x.losses}</td><td>${rate(x.wins,x.losses,be)}</td><td>${x.net}</td></tr>`).join('')+'</table>';
+  h+='<b>Luck check: first half vs second half</b><div class="mute" style="font-size:12px;margin:4px 0">A setup you can believe wins in BOTH halves of the period. One that only won early on may have been luck.</div><table class="t"><tr><th>Signal</th><th>Exp.</th><th>1st / 2nd half</th><th></th></tr>'+an.luck.map(x=>`<tr><td>${esc(x.signal.replace(/_/g,' '))}<br><span class="mute">${x.n} trades</span></td><td>${x.expiry}m</td><td>${x.first??'-'}% / ${x.second??'-'}%</td><td class="${x.ok?'good':'mute'}">${esc(x.verdict)}</td></tr>`).join('')+'</table>';
+  if(jr.by_pair.length)h+='<b>By pair</b><table class="t"><tr><th>Pair</th><th>Exp.</th><th>W / L</th><th>Win rate</th></tr>'+jr.by_pair.map(x=>`<tr><td>${esc(x.pair)}</td><td>${x.expiry}m</td><td>${x.wins} / ${x.losses}</td><td>${rate(x.wins,x.losses,be)}</td></tr>`).join('')+'</table>';
+  h+=`<b>Time of day (UTC)</b><div class="row" style="margin:6px 0"><select class="psel" id="psig">${an.signals.map(z=>`<option ${z===an.signal?'selected':''}>${esc(z)}</option>`).join('')}</select><select class="psel" id="pexp">${an.expiries.map(z=>`<option value="${z}" ${z===an.exp?'selected':''}>${z} min expiry</option>`).join('')}</select></div>${hourChart(an)}<div class="mute" style="font-size:12px">Bar height = win rate in that hour. Grey bars have fewer than 10 trades. Hover (or press) a bar for the numbers.</div>`;
+  h+='<b>Every setup, drawn</b><div class="mute" style="font-size:12px">Left of the solid line: the candles before entry (the dashed box is the signal candle, then the confirmation candle if the trade waited for one). Right of it: 1-minute candles after entry, with the result at each expiry. The dashed horizontal line is the entry price.</div>';
+  h+='<div class="row" style="margin:8px 0"><button class="sec pf" data-f="all">All</button><button class="sec pf" data-f="win">Wins</button><button class="sec pf" data-f="fail">Losses / mixed</button><button class="sec pf" data-f="real">Traded by the bot</button></div><div id="ptr"></div>';
+  el.innerHTML=h;lastJ=jr.trades;
+  $('pnot').onchange=async e=>{try{await api('/api/paper/notify',{method:'POST',body:JSON.stringify({on:e.target.checked})})}catch(x){e.target.checked=!e.target.checked}};
+  $('psig').onchange=e=>{pSig=e.target.value;e.target.blur();pLoad()};$('pexp').onchange=e=>{pExp=+e.target.value;e.target.blur();pLoad()};
+  document.querySelectorAll('.pf').forEach(b=>b.onclick=()=>{pF=b.dataset.f;pShow=15;renderTrades()});renderTrades()}catch(e){el.textContent='Failed: '+e.message}}
+document.querySelectorAll('.pw').forEach(b=>b.onclick=()=>{pH=+b.dataset.h;pLoad()});
+pLoad();setInterval(pLoad,30000);
+let tmr;
+async function suggest(){
+  const q=$('sym').value;
+  try{const r=await api('/api/pairs?q='+encodeURIComponent(q));
+  $('sug').innerHTML=r.map(p=>`<div data-s="${p.symbol}"><span><b>${p.symbol}</b> <small>${p.type}</small></span><span>${p.price??''}</span></div>`).join('');
+  $('sug').style.display=r.length?'block':'none';
+  $('sug').querySelectorAll('div').forEach(d=>d.onclick=()=>{$('sym').value=d.dataset.s;$('sug').style.display='none';allfx();
+    const p=r.find(x=>x.symbol===d.dataset.s);$('live').textContent=p&&p.price?('Current price: '+p.price):'';
+    if(p&&p.price&&!$('target').value)$('target').value=p.price})}catch(e){}}
+$('sym').onfocus=suggest;
+$('sym').oninput=()=>{allfx();clearTimeout(tmr);tmr=setTimeout(suggest,250)};
+
+function atbox(){const s=$('sym').value.toUpperCase();$('atbox').style.display=($('kind').value==='candle'&&(s.startsWith('OLYMP:')||s==='ALLOLYMP'))?'':'none';if($('atbox').style.display==='none')$('auto').checked=false;$('atbox2').style.display=$('auto').checked?'':'none';if(!$('auto').checked)$('autoc').checked=false}
+$('auto').addEventListener('change',atbox);
+$('kind').addEventListener('change',atbox);$('sym').addEventListener('input',atbox);$('sug').addEventListener('click',()=>setTimeout(atbox,50));
+let atOn=false,atFilled=false;
+let balDirty=false;$('at_balance').oninput=()=>{balDirty=true};
+function stakeUI(){const p=$('at_stake_mode').value==='1';document.querySelectorAll('.pctf').forEach(e=>e.style.display=p?'':'none');$('at_amount').disabled=p}
+$('at_stake_mode').onchange=stakeUI;
+$('atsave').onclick=async()=>{const b={};for(const k of ['account_id','amount','duration','max_hour','max_day','max_late','margin','max_streak','max_day_losses','stake_mode','stake_pct','balance','stake_min','stake_max'])b[k]=$('at_'+k).value;
+  if(!balDirty)delete b.balance; // untouched: the server keeps the balance it has been tracking
+  try{await api('/api/trader/config',{method:'POST',body:JSON.stringify(b)});$('atout').textContent='Saved.';balDirty=false;atFilled=false;atLoad()}catch(e){$('atout').textContent=e.message}};
+async function atLoad(){try{const r=await api('/api/trader');atOn=r.on;
+  $('atsw').textContent=r.on?'Auto-trade is ON (tap to turn OFF)':'Auto-trade is OFF (tap to turn ON)';
+  if(!atFilled){atFilled=true;for(const k in r.config)if(r.config[k]||['margin','max_streak','max_day_losses','stake_mode','balance','stake_min','stake_max'].includes(k))$('at_'+k).value=r.config[k]}
+  if(document.activeElement!==$('at_balance')&&!balDirty)$('at_balance').value=r.config.balance||'';  // the app tracks it, so never show a stale one
+  stakeUI();$('stakenow').textContent=r.config.stake_mode?`Next stake: ${r.stake_now} (${r.config.stake_pct}% of a balance of ${r.config.balance}${r.config.stake_min?', min '+r.config.stake_min:''}${r.config.stake_max?', max '+r.config.stake_max:''}).`:`Stake per trade: ${r.stake_now} (fixed).`;
+  let t=`Olymp connection: ${r.olymp_ready?'ready':'not ready'}.\n`;
+  if(r.missing.length)t+='Fill in and save: '+r.missing.join(', ')+'\n';
+  if(r.pending&&r.pending.length)t+='\nWaiting for / judged confirmation candles:\n'+r.pending.map(x=>`${new Date(x.ts*1000).toLocaleString()}  ${x.asset} signal ${x.sig_dir}: ${x.status}`).join('\n')+'\n';
+  t+=r.trades.length?'\nRecent:\n'+r.trades.map(x=>`${new Date(x.ts*1000).toLocaleString()}  ${x.asset} ${x.direction||'-'}: ${x.status}${x.result?` => ${x.result.toUpperCase()} (${x.pips>0?'+':''}${x.pips} pips, estimated)`:x.settled?' => result unknown':''}${x.reply?'\n   reply: '+x.reply:''}`).join('\n'):'\nNo trades yet.';
+  if(r.messages.length)t+='\n\nLast messages from Olymp Trade (send me these if a trade is not confirmed):\n'+r.messages.map(m=>`e=${m.e}: ${m.msg}`).join('\n');
+  $('atout').textContent=t}catch(e){$('atout').textContent='Failed: '+e.message}}
+$('atsw').onclick=async()=>{try{await api('/api/trader/switch',{method:'POST',body:JSON.stringify({on:!atOn})})}catch(e){$('atout').textContent=e.message;return}atLoad()};
+$('atrf').onclick=atLoad;atLoad();setInterval(atLoad,30000);
+let adOn=true;
+async function adLoad(){try{const r=await api('/api/adapt');adOn=r.on;$('adsw').textContent=r.on?'Adaptive direction: ON (tap to turn off)':'Adaptive direction: OFF (tap to turn on)';
+  $('adout').textContent=r.cases.map(c=>`${c.case}: default ${c.default}, now ${c.mode==='flipped'?'FLIPPED (trading the other way)':'default'}. Default direction won ${c.wins} of ${c.n} recent decided trades${c.n?` (${c.rate}%, 95% range ${c.low}-${c.high}%)`:''}.${c.n<r.min?` Needs ${r.min} before it can change.`:''}`).join('\n')+`\n\nLooks at the last ${r.window} trades per case. Few trades means it can be fooled by luck, so watch it.`;
+  const w=await api('/api/adapt/case1');$('adout').textContent+=`\n\nCase 1, same ${w.trades} trades scored three ways (break-even is about 54%):\n`+(w.trades?w.options.map(o=>`${o.name}: ${o.wins} won, ${o.losses} lost${o.rate!=null?` = ${o.rate}% (95% range ${o.low}-${o.high}%)`:''}`).join('\n'):'no settled case 1 trades with a saved chart yet.')}catch(e){$('adout').textContent='Failed: '+e.message}}
+$('adsw').onclick=async()=>{try{await api('/api/adapt/switch',{method:'POST',body:JSON.stringify({on:!adOn})})}catch(e){$('adout').textContent=e.message;return}adLoad()};
+$('adf').onclick=async()=>{const o=$('adfout');o.textContent='Looking...';try{const w=await api('/api/adapt/drivers?family='+encodeURIComponent($('adfam').value));
+  if(w.trades<30){o.textContent=`Only ${w.trades} finished trades with a saved chart in this group. Too few to find anything real (aim for 100+, ideally several hundred). Keep trading, then try again.`;return}
+  let t=`${w.trades} trades (${w.deep} with the deep 40-candle history). Price CONTINUED the way the signal pointed ${w.continue_rate}% of the time overall. ${w.tested} groups tested, so every range is widened to allow for that. Trust only groups marked HELD.\n`;
+  t+=w.findings.map(f=>`\n${f.held?'HELD  ':f.lean?'maybe ':'      '}${f.feature}: ${f.bucket}\n   continued ${f.rate}% (${f.up} of ${f.n}, widened range ${f.low}-${f.high}%); 1st half ${f.first}% / 2nd half ${f.second}%${f.lean?` -> ${f.lean}`:''}`).join('');
+  o.textContent=t+'\n\nHELD = the widened range excludes 50% AND both halves of your history lean the same way. It is a lead to test on new trades, not a rule.'}catch(e){o.textContent='Failed: '+e.message}};
+adLoad();setInterval(adLoad,30000);
+
+function pbText(r){
+  let t=`Mode: ${r.mode}. Strictness: ${r.level}. ${r.decided_trades} finished confirmed trades${r.used!=null?` (${r.used} used in the last learning pass)`:''}. Break-even is ${r.breakeven}%.\n`;
+  if(r.note)t+='\n'+r.note+'\n';
+  t+=`\nACTIVE RULES (${r.active.length}):\n`;
+  t+=r.active.length?r.active.map(x=>`\n+ ${x.text}\n   won ${x.rate}% of ${x.n} (95% range ${x.low}-${x.high}%), newest 30%: ${x.test_rate==null?'-':x.test_rate+'%'}, latest ${x.recent_n}: ${x.recent_rate==null?'-':x.recent_rate+'%'}`).join(''):'\nNone yet. A rule must pass every test before the bot may use it.';
+  if(r.watch&&r.watch.length){t+=`\n\nCLOSEST BUT NOT ACTIVE (${r.tested} groups tested):\n`+r.watch.slice(0,5).map(x=>`\n- ${x.text}\n   ${x.rate}% of ${x.n}; not active because: ${x.why.join('; ')}`).join('')}
+  if(r.events&&r.events.length)t+='\n\nRECENT CHANGES:\n'+r.events.slice(0,6).map(e=>`${new Date(e.ts*1000).toISOString().slice(5,16).replace('T',' ')} UTC ${e.kind}: ${e.text}`).join('\n');
+  return t}
+async function pbLoad(){if(document.activeElement&&document.activeElement.classList.contains('psel'))return;
+  try{const r=await api('/api/playbook');$('pbmode').value=r.mode;$('pbsig').checked=r.signals;$('pblevel').value=r.level;$('pbout').textContent=pbText(r)}catch(e){$('pbout').textContent='Failed: '+e.message}}
+$('pbmode').onchange=async e=>{e.target.blur();try{await api('/api/playbook/settings',{method:'POST',body:JSON.stringify({mode:e.target.value})})}catch(x){$('pbout').textContent=x.message}pbLoad()};
+$('pblevel').onchange=async e=>{e.target.blur();try{await api('/api/playbook/settings',{method:'POST',body:JSON.stringify({level:e.target.value})})}catch(x){$('pbout').textContent=x.message}pbLoad()};
+$('pbsig').onchange=async e=>{try{await api('/api/playbook/settings',{method:'POST',body:JSON.stringify({signals:e.target.checked?1:0})})}catch(x){$('pbout').textContent=x.message}pbLoad()};
+$('pbnow').onclick=async()=>{$('pbout').textContent='Learning...';try{await api('/api/playbook/refresh',{method:'POST'})}catch(x){$('pbout').textContent=x.message;return}pbLoad()};
+$('pbreplay').onclick=async()=>{const o=$('pbrep');o.textContent='Replaying your history, one step at a time, using only the past each time...';
+  try{const w=await api('/api/playbook/replay');const f=x=>`${x.trades} trades, ${x.wins} won = ${x.rate==null?'-':x.rate+'%'} (95% range ${x.low}-${x.high}%), net ${x.net} stakes`;
+    o.textContent=`TEST ON YOUR HISTORY (${w.trades} trades; learning started after the first ${w.start}; break-even ${w.breakeven}%)\n\nEvery trade by its case's default direction:\n  ${f(w.all_default)}\nPlaybook trades only (${w.skipped} setups skipped):\n  ${f(w.playbook)}\nThe default direction on those same trades:\n  ${f(w.default_on_same_trades)}\n\n${w.verdict}`+(w.events.length?'\n\nWhat it learned and retired:\n'+w.events.slice(-8).map(e=>`after trade ${e.at}: ${e.kind}: ${e.text}`).join('\n'):'')}catch(e){o.textContent='Failed: '+e.message}};
+pbLoad();setInterval(pbLoad,30000);
+load();setInterval(load,15000);
+</script></body></html>
